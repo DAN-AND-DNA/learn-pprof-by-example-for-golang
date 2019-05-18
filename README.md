@@ -24,7 +24,7 @@
 例程为:
 ```go
 package main
-  
+
 import (
         "log"
         "os"
@@ -62,8 +62,22 @@ func main() {
                 log.Fatal(err)
         }
 
+        m2, err := os.Create("mem_profile2.prof")
+        if err != nil {
+                log.Fatal(err)
+        }
+
+        m3, err := os.Create("mem_profile3.prof")
+        if err != nil {
+                log.Fatal(err)
+        }
+
+
+
         defer m.Close()
         defer m1.Close()
+        defer m2.Close()
+        defer m3.Close()
 
         pprof.StartCPUProfile(c)
         defer pprof.StopCPUProfile()
@@ -82,10 +96,18 @@ func main() {
 
         }()
         testmap[2]= runheaptest()
-
         runtime.GC()
         pprof.Lookup("heap").WriteTo(m1, 0)
+
+        testmap[2] = nil
+        runtime.GC()
+        pprof.Lookup("heap").WriteTo(m2, 0)
         //run in main thread
+        
+        testmap[1] = nil
+        runtime.GC()
+        pprof.Lookup("heap").WriteTo(m3, 0)
+        
         procmsg()
 }
 
@@ -112,6 +134,7 @@ func procmsg(){
                 }
         }
 }
+                                                      
 ```
 
 install然后运行上述程序将会得到 cpu_profle.prof 和 mem_profile.prof 2个文件，前者代表针对cpu的取样，后者代表针对heap的统计，可以通过pprof来分析上述产生的文件例如:
@@ -172,116 +195,201 @@ install然后运行上述程序将会得到 cpu_profle.prof 和 mem_profile.prof
  ![demo](https://github.com/DAN-AND-DNA/learn-pprof-by-example-for-golang/blob/master/img/2019518-161135.jpg)
  
  
- 内存泄露分析，前后对比 mem_profile.prof和 mem_profile1.prof就可以看出heap的变化，例如:
+ 内存泄露分析，前后对比 mem_profile.prof和 mem_profile*.prof就可以看出heap的变化，例如:
  
-    $ go tool pprof mem_profile.prof en 
-    en: parsing profile: unrecognized profile format
-    Fetched 1 source profiles out of 2
-    File: en
-    Type: inuse_space
-    Time: May 18, 2019 at 5:39pm (CST)
-    Entering interactive mode (type "help" for commands, "o" for options)
-    (pprof) top
-    Showing nodes accounting for 2.25MB, 100% of 2.25MB total
-          flat  flat%   sum%        cum   cum%
-        1.16MB 51.36% 51.36%     1.16MB 51.36%  runtime/pprof.StartCPUProfile
-        1.10MB 48.64%   100%     2.25MB   100%  main.main
-             0     0%   100%     2.25MB   100%  runtime.main
-    (pprof) list main.main
-    Total: 2.25MB
-    ROUTINE ======================== main.main in /home/dan/Desktop/src/work/src/en/testprof.go
-          1.10MB     2.25MB (flat, cum)   100% of Total
-             .          .     38:   }
-             .          .     39:
-             .          .     40:   defer m.Close()
-             .          .     41:   defer m1.Close()
-             .          .     42:
-             .     1.16MB     43:   pprof.StartCPUProfile(c)
-             .          .     44:   defer pprof.StopCPUProfile()
-             .          .     45:
-             .          .     46:   testmap[1]= runheaptest()
-             .          .     47:
-             .          .     48:   runtime.GC()
-             .          .     49:   pprof.Lookup("heap").WriteTo(m, 0)
-             .          .     50:   //FIXME running in another thread or blocking main thread !!!
-             .          .     51:   go runcputest()
-             .          .     52:
-             .          .     53:   go func(){
-             .          .     54:           time.Sleep(10 * time.Second)
-             .          .     55:           log.Println("tick")
-             .          .     56:           timerqueue <- struct{}{}
-             .          .     57:
-             .          .     58:   }()
-             .          .     59:   testmap[2]= runheaptest()
-             .          .     60:
-             .          .     61:   runtime.GC()
-             .          .     62:   pprof.Lookup("heap").WriteTo(m1, 0)
-             .          .     63:   //run in main thread
-             .          .     64:   procmsg()
-             .          .     65:}
-             .          .     66:
-             .          .     67:func runheaptest()([]int) {
-        1.10MB     1.10MB     68:   mem :=  make([]int, 100000, 120000)
-             .          .     69:   return mem
-             .          .     70:}
-             .          .     71:
-             .          .     72:func runcputest(){
-             .          .     73:   var i uint64 = 0
-    (pprof) quit
-    dan@dan-VirtualBox:~/Desktop/src/work/bin$ go tool pprof mem_profile1.prof en 
-    en: parsing profile: unrecognized profile format
-    Fetched 1 source profiles out of 2
-    File: en
-    Type: inuse_space
-    Time: May 18, 2019 at 5:39pm (CST)
-    Entering interactive mode (type "help" for commands, "o" for options)
-    (pprof) top
-    Showing nodes accounting for 3.35MB, 100% of 3.35MB total
-          flat  flat%   sum%        cum   cum%
-        2.19MB 65.44% 65.44%     3.35MB   100%  main.main
-        1.16MB 34.56%   100%     1.16MB 34.56%  runtime/pprof.StartCPUProfile
-             0     0%   100%     3.35MB   100%  runtime.main
-    (pprof) list main.main
-    Total: 3.35MB
-    ROUTINE ======================== main.main in /home/dan/Desktop/src/work/src/en/testprof.go
-        2.19MB     3.35MB (flat, cum)   100% of Total
-             .          .     38:   }
-             .          .     39:
-             .          .     40:   defer m.Close()
-             .          .     41:   defer m1.Close()
-             .          .     42:
-             .     1.16MB     43:   pprof.StartCPUProfile(c)
-             .          .     44:   defer pprof.StopCPUProfile()
-             .          .     45:
-             .          .     46:   testmap[1]= runheaptest()
-             .          .     47:
-             .          .     48:   runtime.GC()
-             .          .     49:   pprof.Lookup("heap").WriteTo(m, 0)
-             .          .     50:   //FIXME running in another thread or blocking main thread !!!
-             .          .     51:   go runcputest()
-             .          .     52:
-             .          .     53:   go func(){
-             .          .     54:           time.Sleep(10 * time.Second)
-             .          .     55:           log.Println("tick")
-             .          .     56:           timerqueue <- struct{}{}
-             .          .     57:
-             .          .     58:   }()
-             .          .     59:   testmap[2]= runheaptest()
-             .          .     60:
-             .          .     61:   runtime.GC()
-             .          .     62:   pprof.Lookup("heap").WriteTo(m1, 0)
-             .          .     63:   //run in main thread
-             .          .     64:   procmsg()
-             .          .     65:}
-             .          .     66:
-             .          .     67:func runheaptest()([]int) {
-        2.19MB     2.19MB     68:   mem :=  make([]int, 100000, 120000)
-             .          .     69:   return mem
-             .          .     70:}
-             .          .     71:
-             .          .     72:func runcputest(){
-             .          .     73:   var i uint64 = 0
-    (pprof) 
- 
+```
+$ go tool pprof mem_profile.prof en   
+en: parsing profile: unrecognized profile format
+Fetched 1 source profiles out of 2
+File: en
+Type: inuse_space
+Time: May 18, 2019 at 11:48pm (CST)
+Entering interactive mode (type "help" for commands, "o" for options)
+(pprof) lu
+Unrecognized command: "lu"
+(pprof) list main.main
+Total: 2.25MB
+ROUTINE ======================== main.main in /home/dan/Desktop/src/work/src/en/testprof.go
+    1.10MB     2.25MB (flat, cum)   100% of Total
+         .          .     52:   defer m.Close()
+         .          .     53:   defer m1.Close()
+         .          .     54:   defer m2.Close()
+         .          .     55:   defer m3.Close()
+         .          .     56:
+         .     1.16MB     57:   pprof.StartCPUProfile(c)
+         .          .     58:   defer pprof.StopCPUProfile()
+         .          .     59:
+         .          .     60:   testmap[1]= runheaptest()
+         .          .     61:
+         .          .     62:   runtime.GC()
+         .          .     63:   pprof.Lookup("heap").WriteTo(m, 0)
+         .          .     64:   //FIXME running in another thread or blocking main thread !!!
+         .          .     65:   go runcputest()
+         .          .     66:
+         .          .     67:   go func(){
+         .          .     68:           time.Sleep(10 * time.Second)
+         .          .     69:           log.Println("tick")
+         .          .     70:           timerqueue <- struct{}{}
+         .          .     71:
+         .          .     72:   }()
+         .          .     73:   testmap[2]= runheaptest()
+         .          .     74:   runtime.GC()
+         .          .     75:   pprof.Lookup("heap").WriteTo(m1, 0)
+         .          .     76:
+         .          .     77:   testmap[2] = nil
+         .          .     78:   runtime.GC()
+         .          .     79:   pprof.Lookup("heap").WriteTo(m2, 0)
+         .          .     80:   //run in main thread
+         .          .     81:
+         .          .     82:   testmap[1] = nil
+         .          .     83:   runtime.GC()
+         .          .     84:   pprof.Lookup("heap").WriteTo(m3, 0)
+         .          .     85:
+         .          .     86:   procmsg()
+         .          .     87:}
+         .          .     88:
+         .          .     89:func runheaptest()([]int) {
+    1.10MB     1.10MB     90:   mem :=  make([]int, 100000, 120000)
+         .          .     91:   return mem
+         .          .     92:}
+         .          .     93:
+         .          .     94:func runcputest(){
+         .          .     95:   var i uint64 = 0
+(pprof) quit
+dan@dan-VirtualBox:~/Desktop/src/work/bin$ go tool pprof mem_profile1.prof en 
+en: parsing profile: unrecognized profile format
+Fetched 1 source profiles out of 2
+File: en
+Type: inuse_space
+Time: May 18, 2019 at 11:48pm (CST)
+Entering interactive mode (type "help" for commands, "o" for options)
+(pprof) list main.main
+Total: 3.35MB
+ROUTINE ======================== main.main in /home/dan/Desktop/src/work/src/en/testprof.go
+    2.19MB     3.35MB (flat, cum)   100% of Total
+         .          .     52:   defer m.Close()
+         .          .     53:   defer m1.Close()
+         .          .     54:   defer m2.Close()
+         .          .     55:   defer m3.Close()
+         .          .     56:
+         .     1.16MB     57:   pprof.StartCPUProfile(c)
+         .          .     58:   defer pprof.StopCPUProfile()
+         .          .     59:
+         .          .     60:   testmap[1]= runheaptest()
+         .          .     61:
+         .          .     62:   runtime.GC()
+         .          .     63:   pprof.Lookup("heap").WriteTo(m, 0)
+         .          .     64:   //FIXME running in another thread or blocking main thread !!!
+         .          .     65:   go runcputest()
+         .          .     66:
+         .          .     67:   go func(){
+         .          .     68:           time.Sleep(10 * time.Second)
+         .          .     69:           log.Println("tick")
+         .          .     70:           timerqueue <- struct{}{}
+         .          .     71:
+         .          .     72:   }()
+         .          .     73:   testmap[2]= runheaptest()
+         .          .     74:   runtime.GC()
+         .          .     75:   pprof.Lookup("heap").WriteTo(m1, 0)
+         .          .     76:
+         .          .     77:   testmap[2] = nil
+         .          .     78:   runtime.GC()
+         .          .     79:   pprof.Lookup("heap").WriteTo(m2, 0)
+         .          .     80:   //run in main thread
+         .          .     81:
+         .          .     82:   testmap[1] = nil
+         .          .     83:   runtime.GC()
+         .          .     84:   pprof.Lookup("heap").WriteTo(m3, 0)
+         .          .     85:
+         .          .     86:   procmsg()
+         .          .     87:}
+         .          .     88:
+         .          .     89:func runheaptest()([]int) {
+    2.19MB     2.19MB     90:   mem :=  make([]int, 100000, 120000)
+         .          .     91:   return mem
+         .          .     92:}
+         .          .     93:
+         .          .     94:func runcputest(){
+         .          .     95:   var i uint64 = 0
+(pprof) quit
+dan@dan-VirtualBox:~/Desktop/src/work/bin$ go tool pprof mem_profile2.prof en  
+en: parsing profile: unrecognized profile format
+Fetched 1 source profiles out of 2
+File: en
+Type: inuse_space
+Time: May 18, 2019 at 11:48pm (CST)
+Entering interactive mode (type "help" for commands, "o" for options)
+(pprof) list main.main
+Total: 2.25MB
+ROUTINE ======================== main.main in /home/dan/Desktop/src/work/src/en/testprof.go
+    1.10MB     2.25MB (flat, cum)   100% of Total
+         .          .     52:   defer m.Close()
+         .          .     53:   defer m1.Close()
+         .          .     54:   defer m2.Close()
+         .          .     55:   defer m3.Close()
+         .          .     56:
+         .     1.16MB     57:   pprof.StartCPUProfile(c)
+         .          .     58:   defer pprof.StopCPUProfile()
+         .          .     59:
+         .          .     60:   testmap[1]= runheaptest()
+         .          .     61:
+         .          .     62:   runtime.GC()
+         .          .     63:   pprof.Lookup("heap").WriteTo(m, 0)
+         .          .     64:   //FIXME running in another thread or blocking main thread !!!
+         .          .     65:   go runcputest()
+         .          .     66:
+         .          .     67:   go func(){
+         .          .     68:           time.Sleep(10 * time.Second)
+         .          .     69:           log.Println("tick")
+         .          .     70:           timerqueue <- struct{}{}
+         .          .     71:
+         .          .     72:   }()
+         .          .     73:   testmap[2]= runheaptest()
+         .          .     74:   runtime.GC()
+         .          .     75:   pprof.Lookup("heap").WriteTo(m1, 0)
+         .          .     76:
+         .          .     77:   testmap[2] = nil
+         .          .     78:   runtime.GC()
+         .          .     79:   pprof.Lookup("heap").WriteTo(m2, 0)
+         .          .     80:   //run in main thread
+         .          .     81:
+         .          .     82:   testmap[1] = nil
+         .          .     83:   runtime.GC()
+         .          .     84:   pprof.Lookup("heap").WriteTo(m3, 0)
+         .          .     85:
+         .          .     86:   procmsg()
+         .          .     87:}
+         .          .     88:
+         .          .     89:func runheaptest()([]int) {
+    1.10MB     1.10MB     90:   mem :=  make([]int, 100000, 120000)
+         .          .     91:   return mem
+         .          .     92:}
+         .          .     93:
+         .          .     94:func runcputest(){
+         .          .     95:   var i uint64 = 0
+(pprof) quit
+dan@dan-VirtualBox:~/Desktop/src/work/bin$ go tool pprof mem_profile3.prof en  
+en: parsing profile: unrecognized profile format
+Fetched 1 source profiles out of 2
+File: en
+Type: inuse_space
+Time: May 18, 2019 at 11:48pm (CST)
+Entering interactive mode (type "help" for commands, "o" for options)
+(pprof) list main.main
+Total: 1.16MB
+ROUTINE ======================== main.main in /home/dan/Desktop/src/work/src/en/testprof.go
+         0     1.16MB (flat, cum)   100% of Total
+         .          .     52:   defer m.Close()
+         .          .     53:   defer m1.Close()
+         .          .     54:   defer m2.Close()
+         .          .     55:   defer m3.Close()
+         .          .     56:
+         .     1.16MB     57:   pprof.StartCPUProfile(c)
+         .          .     58:   defer pprof.StopCPUProfile()
+         .          .     59:
+         .          .     60:   testmap[1]= runheaptest()
+         .          .     61:
+         .          .     62:   runtime.GC()
+``` 
 ## http专属pprof
 
