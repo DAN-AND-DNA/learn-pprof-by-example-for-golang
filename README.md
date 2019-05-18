@@ -145,7 +145,13 @@ install然后运行上述程序将会得到 cpu_profle.prof 和 mem_profile.prof
              .          .     72:}
     (pprof)
     
- 可以导出 callgrind文件进行可视化分析，例如:
+ 可以导出callgrind文件进行可视化分析，例如:
+ 
+    (pprof) callgrind
+    Generating report in profile001.callgraph.out
+    (pprof) 
+ 
+ 
  
 ## http专属pprof
 
