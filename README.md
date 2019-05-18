@@ -106,7 +106,7 @@ install然后运行上述程序将会得到 cpu_profle.prof 和 mem_profile.prof
     Duration: 20.18s, Total samples = 20.27s (100.46%)
     Entering interactive mode (type "help" for commands, "o" for options)
     
-可以查询前10的函数，例如:
+可以查询消耗cpu排名前10的函数，例如:
 
     (pprof) top
     Showing nodes accounting for 18680ms, 92.16% of 20270ms total
@@ -124,7 +124,7 @@ install然后运行上述程序将会得到 cpu_profle.prof 和 mem_profile.prof
          770ms  3.80% 89.59%      770ms  3.80%  runtime.duffzero
          520ms  2.57% 92.16%      520ms  2.57%  runtime.procyield
          
-可以查询函数详情，例如
+可以查询具体函数详情，例如
 
     (pprof) list main.procmsg
     Total: 20.27s
