@@ -97,7 +97,7 @@ func procmsg(){
 }
 ```
 
-install然后运行上述程序将会得到 cpu_profle.prof 和 mem_profile.prof 2个文件，前者代表针对cpu的取样，后者代表针对heap的统计，可以通过pprof来分析上述产生的文件，例如:
+install然后运行上述程序将会得到 cpu_profle.prof 和 mem_profile.prof 2个文件，前者代表针对cpu的取样，后者代表针对heap的统计，可以通过pprof来分析上述产生的文件例如:
 
     $ go tool pprof en cpu_profle.prof 
     File: en
@@ -105,6 +105,9 @@ install然后运行上述程序将会得到 cpu_profle.prof 和 mem_profile.prof
     Time: May 18, 2019 at 12:05am (CST)
     Duration: 20.18s, Total samples = 20.27s (100.46%)
     Entering interactive mode (type "help" for commands, "o" for options)
+    
+可以查询前10的函数，例如:
+
     (pprof) top
     Showing nodes accounting for 18680ms, 92.16% of 20270ms total
     Dropped 20 nodes (cum <= 101.35ms)
@@ -120,6 +123,9 @@ install然后运行上述程序将会得到 cpu_profle.prof 和 mem_profile.prof
          800ms  3.95% 85.79%     3280ms 16.18%  runtime.sellock
          770ms  3.80% 89.59%      770ms  3.80%  runtime.duffzero
          520ms  2.57% 92.16%      520ms  2.57%  runtime.procyield
+         
+可以查询函数详情，例如
+
     (pprof) list main.procmsg
     Total: 20.27s
     ROUTINE ======================== main.procmsg in /home/dan/Desktop/src/work/src/en/testprof.go
@@ -137,6 +143,9 @@ install然后运行上述程序将会得到 cpu_profle.prof 和 mem_profile.prof
              .          .     70:           }
              .          .     71:   }
              .          .     72:}
-    (pprof) 
+    (pprof)
+    
+ 可以导出 callgrind文件进行可视化分析，例如:
+ 
 ## http专属pprof
 
